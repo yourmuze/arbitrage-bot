@@ -1,18 +1,26 @@
 package arbitrage
 
 import (
-	"log"
-	"github.com/yourusername/arbitrage-bot/pkg/binance"
-	"github.com/yourusername/arbitrage-bot/pkg/uniswap"
+	"fmt"
+	"github.com/yourmuze/arbitrage-bot/pkg/binance"
+	"github.com/yourmuze/arbitrage-bot/pkg/uniswap"
+	"github.com/yourmuze/arbitrage-bot/pkg/utils"
 )
 
 type ArbitrageBot struct {
 	binance *binance.BinanceClient
 	uniswap *uniswap.UniswapClient
+	balance float64 // Тестовый баланс в USDT
+	config  utils.Config
 }
 
-func NewArbitrageBot(binance *binance.BinanceClient, uniswap *uniswap.UniswapClient) *ArbitrageBot {
-	return &ArbitrageBot{binance: binance, uniswap: uniswap}
+func NewArbitrageBot(binance *binance.BinanceClient, uniswap *uniswap.UniswapClient, config utils.Config) *ArbitrageBot {
+	return &ArbitrageBot{
+		binance: binance,
+		uniswap: uniswap,
+		balance: 5000.0, // Начальный баланс 5000 USDT
+		config:  config,
+	}
 }
 
 func (a *ArbitrageBot) CheckOpportunity(symbol string) {
@@ -22,12 +30,30 @@ func (a *ArbitrageBot) CheckOpportunity(symbol string) {
 	}
 	uniswapPrice := a.uniswap.GetPrice()
 
-	log.Printf("Binance: %f, Uniswap: %f", binancePrice, uniswapPrice)
+	utils.LogToReadme(fmt.Sprintf("Balance: %.2f USDT", a.balance))
+	utils.LogToReadme(fmt.Sprintf("Binance: %.2f, Uniswap: %.2f", binancePrice, uniswapPrice))
+
+	// Симуляция сделки
+	tradeAmount := 1.0 // 1 ETH для теста
 	if binancePrice > uniswapPrice {
-		log.Println("Opportunity: Buy on Uniswap, Sell on Binance")
+		profit := (binancePrice - uniswapPrice) * tradeAmount
+		if profit > 0 && a.balance >= uniswapPrice*tradeAmount {
+			a.balance += profit // Обновляем баланс
+			msg := fmt.Sprintf("SUCCESS: Buy on Uniswap (%.2f), Sell on Binance (%.2f), Profit: %.2f USDT, New Balance: %.2f USDT",
+				uniswapPrice, binancePrice, profit, a.balance)
+			utils.LogToReadme(msg)
+			utils.SendTelegramMessage(a.config, msg)
+		}
 	} else if uniswapPrice > binancePrice {
-		log.Println("Opportunity: Buy on Binance, Sell on Uniswap")
+		profit := (uniswapPrice - binancePrice) * tradeAmount
+		if profit > 0 && a.balance >= binancePrice*tradeAmount {
+			a.balance += profit // Обновляем баланс
+			msg := fmt.Sprintf("SUCCESS: Buy on Binance (%.2f), Sell on Uniswap (%.2f), Profit: %.2f USDT, New Balance: %.2f USDT",
+				binancePrice, uniswapPrice, profit, a.balance)
+			utils.LogToReadme(msg)
+			utils.SendTelegramMessage(a.config, msg)
+		}
 	} else {
-		log.Println("No arbitrage opportunity")
+		utils.LogToReadme("No arbitrage opportunity")
 	}
 }
